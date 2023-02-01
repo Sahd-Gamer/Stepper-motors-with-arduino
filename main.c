@@ -46,8 +46,8 @@ Pulley tooth count = Zähnezahl der Riemenscheibe
 //float d = 1;
 
 // Analog
-float xpos = 132; //132 in mm für eine Umdrehung
-float ypos = 132; // in mm
+float xpos = 1320; //132 in mm für eine Umdrehung
+float ypos = 1320; // in mm
 int32_t mx ;//= 2000 ;//Motormxp fuer X- Richtung
 int32_t my ;//Motormxp fuer Y- Richtung
 
@@ -85,7 +85,7 @@ int main(void)
 			unsigned char z = t;	
 			if (t > 0)
 			{
-				
+				while (1) {
 				z %=2;
 				if (z == 0)
 				{
@@ -113,10 +113,8 @@ int main(void)
 						//_delay_ms(1);
 						PORTD &= ~stepPinX;
 						_delay_ms(1);
-						}else{
-						
-						}
-						z= t;
+					}
+					z= t;
 					}
 				if (z == 1)
 				{
@@ -143,12 +141,10 @@ int main(void)
 						//_delay_ms(1);
 						PORTD &= ~stepPinY;
 						_delay_ms(1);
-					} else{
-						
 					}
 					z= t;
 				}
-			}else{
+				}
 			}
 			/*if (Timer0_get_10msState() == TIMER_TRIGGERED) //jede 1s wird die Bedingung erfült
 			{

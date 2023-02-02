@@ -19,13 +19,13 @@
 
 
 //Einbindung der Module
-#include "Timer0.h"
-#include "Timer1.h"
+//#include "Timer0.h"
+//#include "Timer1.h"
 
 //Defines **************************************************************
 
 // Initialisierung von Init
-void Init(void);
+//void Init(void);
 
 
 //Funktionen:

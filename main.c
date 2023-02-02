@@ -1,109 +1,159 @@
 /*
  * Qadir_Bachelorarbeit.c
  *
- * Created: 30.01.2023 21:17:14
+ * Created: 01.01.2023 21:17:14
  * Author : Sahd1
+ 
  */ 
+
 #define F_CPU 16000000UL
-
-#include "main.h"
-
+#include "main.h"// Einschlieﬂung von Header-Datei "main.h"
 //#include <stdbool.h> // fuer boolean benutzten
-// hier definiert, zur Vereinfachung von Tiparbeit
+
+
+
+//============================================Globale Definitionen===============================================================================//
 
 #define stepPinX (1<<PD2) //stepPinX
 #define dirPinX (1<<PD5) //DirPinX
 #define stepPinY (1<<PD3) //stepPinY
 #define dirPinY (1<<PD6) //DirPinY
-
 #define  pi 3.14159265358979323846
-//***************************************************
-// rpm = 300 U/min = 5/sec = 5 Hz
-//***************************************************
 
-//===============================================================================================//
-//float steps_value = 200;// Schritte vom Motor f¸r 360 Grad
-//float p = 1000; //Riementeilung mm
-//float microstep = 0.00625; // microstep 1, 2,4,8, 16
-//float z = 50; // Zaehnezahl der Riemenscheibe
-// F¸r andere Berechnungen:
-//int turns_per_mm = 6; // 6 Umdrehungen pro mm 
-//===============================================================================================//
-// Input in Centimeter
-//float d = 1;
+//============================================Globale Definitionen abgeschlossen =================================================================//
 
-// Analoge
-float xpos = 264; //132 in mm f¸r eine Umdrehung
-float ypos = 132; // in mm
+//============================================ Eingabe von Positionen, Zeit und Geschwindigkeit ==================================================//
 
-float t = 100; // Eingabe der Zeit
+// Analoge Eingaben: in X- und Y-Richtung in milimeter:
+float xpos = 264; // Dabei entspricht: 132 mm Umfang der Rolle und das entspricht 360∞ bzw. 200 Motor Schritte, da 1 Schritt 1,8∞ entspricht
+float ypos = 132; //
 
-int32_t mx ;//Motormxp fuer X- Richtung
-int32_t my ;//Motormxp fuer Y- Richtung
+// Hier kann die Zeit eingegeben werden in Milisekunden
+float t =10000; // Zeit in Milisekunden
 
-int32_t rotate_x_cw(int32_t mx);
-int32_t rotate_x_acw(int32_t mx);
-int32_t rotate_y_cw(int32_t my);
-int32_t rotate_y_acw(int32_t my);
+//============================================ Eingabe von Positionen, Zeit und Geschwindigkeit Beendet ===========================================//
+
+//======================================================== Verwendetet Variablen:===================================================================//
+
+// mx und my sind die Variablen die nacher fuer die Umwandlung von Analoge 
+//Eingaben ins Digitale, sprich in Motorschritte umgewandelt werden.
+int32_t mx ;//X- Richtung
+int32_t my ;//Y- Richtung
+
+// diese Variabeln werden daf¸r verwendet, damit die Verh‰tnisse zwischen my und mx Schritten ausgerechnet werden,
+// um die Motoren dem entsprechend zu takten.
+float i_steps_x;
+float i_steps_y;
+
+// Berechnug der Schrittdauer; Schritte/gew¸nschte Zeit Interval
+double schrittdauer_x;
+double schrittdauer_y;
+
+//========================================================Verwendete Variablen abgeschlossen =============================================//
+
+
+//======================================================== Verwendetet Funktionen:========================================================//
+
+//Die Parameter mx und my werden in diese Funktionen uebergeben, und diese Argumente
+//werden intern ueber if-Bedingungen an die Funktionen "rotate_x_cw" und "rotate_x_acw"
+//bzw. f¸r movingToY die Funktoinen "rotate_y_cw" und "rotate_y_acw" uebergeben
 void movingToX (int32_t mx);
 void movingToY (int32_t my);
-void delay_x(double schritt_dauer_X);
-void delay_y(double schritt_dauer_Y);
+ 
+// Beide Schrittmotoren in Positive und Negative Richtungen Fahren lassen jeweils um 360∞, also mit 200 Schritten
+int32_t rotate_x_cw(int32_t mx);// Schrittmotor X in nach Uhrzeigersin drehen
+int32_t rotate_x_acw(int32_t mx); // hier in die andere Richtung
+int32_t rotate_y_cw(int32_t my);//  Schrittmotor Y in nach Uhrzeigersin drehen
+int32_t rotate_y_acw(int32_t my); // hier in die andere Richtung
 
-unsigned char ucFlagBlink_X = 0; // Variable f¸r interrupt von Timer0 f¸r jede 500ms 
-unsigned char ucFlagBlink_Y = 0; // Variable f¸r interrupt von Timer0 f¸r jede 500ms 
+//========================================================Funktionen Beendet===============================================================//
 
 
+
+//========================================Hauptprogramm=====================================================================================//
 int main(void)
 {
-	Init();//Initialiersierung
-	// Umwandlung in Digitatl, in Schritten:
+	//Initialiersierung von Initfunktionen:
+	//Init();
+		
+	// Umwandlung der Positionen von mm in Schritten: (Digitalisierung)
 	mx = xpos/(0.66);
-	mx +=1;
+	if(mx > 0 ) mx +=1;
+	if(mx < 0 ) mx -=1;
 	my = ypos/(0.66);
-	my +=1;
-	double schritt_dauer_X = t/mx;
-	double schritt_dauer_Y = t/my;
+	if(my > 0 ) my +=1;
+	if(my < 0 ) my -=1;
 	
-	//==================Berechnung von Geschwindigkeit und Weg======================================//
-	//double s = (1/(p*microstep*z))*steps_value; // Steps per mm
-	//float steps_p_mm = (turns_per_mm*steps_value)/(microstep);//Schritte pro mm 
-	//float ziel = d * 10 *steps_p_mm;// Weg in Centimeter // Eingabe f¸r die Motoren
-	//======================================================================================//
+	// Berechnug der Schrittdauer; Schritte/gew¸nschte Zeit Interval
+	schrittdauer_x = t/mx;
+	schrittdauer_x= (int)(schrittdauer_x + 0.5);
+	schrittdauer_y = t/my;
+	schrittdauer_y = (int)(schrittdauer_y + 0.5);
+	//!!!!!!!!!!!!!!!!!!! schritt_zeit_x und i_steps_x sind gliech!!!!!!!!!!!!!!!!!!!??????????
+	// Berechnung der Schrittverh‰ltnisse von my und my 
+	if (mx > my || mx == my)
+	{
+		i_steps_x = mx/my;
+		i_steps_x = (int)(i_steps_x + 0.5);
+		i_steps_y = 1/i_steps_x;
+		i_steps_y = (int)(i_steps_y + 0.5);
+	}
+	if (my > mx)
+	{
+		i_steps_y = my/mx;
+		i_steps_y = (int)(i_steps_y + 0.5);
+		i_steps_x = 1/i_steps_y;
+		i_steps_x = (int)(i_steps_x + 0.5);
+	}
 
     // setup dirPin and stepPin as output // Bitts werden gesetzt = 1
     DDRD |= dirPinX | stepPinX | dirPinY| stepPinY ;
 		//movingToX (mx);
 		//movingToY (my);
-		
+	//========================================While-Schleife====================================================//
 	while(1){
+		
 		for (int i = 0; i < t; i++ )
 		{
-			unsigned char z = t;	
+			int32_t z = t;
+				
 			if (t > 0)
 			{
 				while (1) {
 				z %=2;
 				if (z == 0)
 				{
-					t--;
+					t--;//Die Zeit wird um i_steps_x verringert weil die Funktion _delay_ms so oft gestartet wird 
+					
 					if (mx > 0)
-					{		
-						for (int i = 0; i < 2; i++)
-						{
-							mx--;
-							//send low pulse for clockwise direction
-							PORTD &= ~dirPinX;
-							//send 200 pulses to rotate One full cycle
-							PORTD |= stepPinX;
-							//_delay_ms(1);
-							PORTD &= ~stepPinX;
-							_delay_ms(2.5); //
+					{	
+						int flagx = 0;
+						// Schrittdauer daurch laufen:
+						for (int j = 0; j < schrittdauer_x; j++)
+						{	
+							_delay_ms(1);
+							flagx++;
+							if (flagx == schrittdauer_x)
+							{
+									for (int i = 0; i < i_steps_x; i++)
+									{
+										mx--;
+										//send low pulse for clockwise direction
+										PORTD &= ~dirPinX;
+										//send 200 pulses to rotate One full cycle
+										PORTD |= stepPinX;
+										//_delay_ms(1);
+										PORTD &= ~stepPinX;
+										_delay_ms(1); //
+									}
+							}
+							
 						}
 							
-							
+						
 					} else if (mx < 0)
 					{
+
 						mx++;
 						//mx *=-1;
 						//send High pulse for anti-clockwise direction
@@ -113,23 +163,41 @@ int main(void)
 						PORTD |= stepPinX;
 						//_delay_ms(1);
 						PORTD &= ~stepPinX;
-						_delay_ms(2.5);
+						_delay_ms(1);
+						
 					}
 					z= t;
 					}
 				if (z == 1)
 				{
-					t--;
+					t--;//Die Zeit wird um i_steps_y verringert weil die Funktion _delay_ms so oft gestartet wird 
+					
 					if(my > 0)
-					{
-						my--;
-						PORTD &= ~dirPinY;
-						//send 200 pulses to rotate One full cycle
+					{	
+							int flagy = 0;
+							for (int j = 0; j < schrittdauer_y; j++)
+							{
+										_delay_ms(1);
+										flagy++;
+										if (flagy == schrittdauer_y)
+										{
+												for (int i = 0; i < i_steps_y; i++)
+												{
+													my--;
+													PORTD &= ~dirPinY;
+													//send 200 pulses to rotate One full cycle
+													
+													PORTD |= stepPinY;
+													//_delay_ms(1);
+													PORTD &= ~stepPinY;
+													_delay_ms(1);
+												}
+										}
+										
+										
+							}
 						
-						PORTD |= stepPinY;
-						//_delay_ms(1);
-						PORTD &= ~stepPinY;
-						_delay_ms(5);
+						
 					} else if (my < 0)
 					{
 						my++;
@@ -141,45 +209,27 @@ int main(void)
 						PORTD |= stepPinY;
 						//_delay_ms(1);
 						PORTD &= ~stepPinY;
-						_delay_ms(5);
+						_delay_ms(1);
 					}
 					z= t;
 				}
 				}
 			}
-			/*if (Timer0_get_10msState() == TIMER_TRIGGERED) //jede 1s wird die Bedingung erf¸lt
-			{
-				j++;
-				if (j == 0) 
-				if (j == 1) movingToY(my);
-			}*/
-			/*if (Timer1_get_10msState() == TIMER1_TRIGGERED) //jede 1s wird die Bedingung erf¸lt
-			{
-				ucFlagBlink_Y++;
-				if (ucFlagBlink_Y) movingToY (my);
-				
-			}*/
+		
+			
 		}
 	}
     return 0;
 }
 
 
-void delay_x(double schritt_dauer_X)
-{
-	while (schritt_dauer_X--) _delay_ms(1);
-}
-void delay_y(double schritt_dauer_Y)
-{
-	while (schritt_dauer_Y--) _delay_ms(1);
-}
 
 
-void Init(void) //Initialisiert die einzelnen Init Funktionen
+/*void Init(void) //Initialisiert die einzelnen Init Funktionen
 {
-	Timer0_Init();
-	Timer1_Init();
-}
+	//Timer0_Init();
+	//Timer1_Init();
+}*/
 
 
 void movingToX (int32_t mx) {
@@ -270,3 +320,17 @@ int32_t rotate_y_acw(int32_t my){
 	return 0;
 }
 
+/*if (Timer1_get_10msState() == TIMER1_TRIGGERED) //jede 1s wird die Bedingung erf¸lt
+			{
+				ucFlagBlink_Y++;
+				if (ucFlagBlink_Y) movingToY (my);
+				
+			}*/
+
+
+
+
+//============================================weitere Informationen:===================================================//
+//***************************************************
+// rpm = 300 U/min = 5/sec = 5 Hz
+//***************************************************
